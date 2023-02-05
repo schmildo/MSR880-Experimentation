@@ -622,8 +622,8 @@ void print_device_info(libusb_device* device) {
 
 	std::cout << "idVendor: 0x" << std::hex << desc.idVendor << std::dec << std::endl;
 	std::cout << "idProduct: 0x" << std::hex << desc.idProduct << std::dec << std::endl;
-	std::cout << "Bus number: " << libusb_get_bus_number(device) << std::endl;
-	std::cout << "Device address: " << libusb_get_device_address(device) << std::endl;
+	std::cout << "Bus number: " << uint8ToBCDandHEX(libusb_get_bus_number(device)) << std::endl;
+	std::cout << "Device address: " << uint8ToBCDandHEX(libusb_get_device_address(device)) << std::endl;
 }
 
 int main(void)
