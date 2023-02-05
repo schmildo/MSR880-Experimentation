@@ -54,8 +54,8 @@ libusb_init_option MyDamnOptions[1];
 libusb_device* MyDamnDevice = nullptr;
 libusb_device_descriptor MyDamnDescriptor;
 
-libusb_interface_descriptor* interface = nullptr;
-libusb_endpoint_descriptor* endpoint = nullptr;
+const libusb_interface_descriptor* MyDamnInterfaceDescriptor = nullptr;
+const libusb_endpoint_descriptor* MyDamnEndpointDescriptor = nullptr;
 
 
 std::string utf16_to_utf8(const std::vector<uint16_t>& utf16) {
@@ -317,17 +317,17 @@ libusb_config_descriptor* TIM_GetActiveConfigDescriptorPointer(libusb_device* De
 	return ReturnValue;
 }
 
-void TIM_PrintInterfacesAndEndpoints(libusb_config_descriptor* ConfigDesc,const libusb_interface_descriptor* InterfaceDesc,const libusb_endpoint_descriptor* EndpointDesc)
+void TIM_PrintInterfacesAndEndpoints(libusb_config_descriptor* ConfigDesc)
 {
 	// Loop through the interfaces in the configuration
 	for (int i = 0; i < ConfigDesc->bNumInterfaces; i++) {
-		InterfaceDesc = &(ConfigDesc->interface[i].altsetting[0]);
-		std::cout << "Interface " << i << " has " << (int)InterfaceDesc->bNumEndpoints<< " endpoint(s)" << std::endl;
+		MyDamnInterfaceDescriptor = &(ConfigDesc->interface[i].altsetting[0]);
+		std::cout << "Interface " << i << " has " << (int)MyDamnInterfaceDescriptor->bNumEndpoints<< " endpoint(s)" << std::endl;
 
 		// Loop through the endpoints in the interface
-		for (int j = 0; j < InterfaceDesc->bNumEndpoints; j++) {
-			EndpointDesc = &InterfaceDesc->endpoint[j];
-			std::cout << "  Endpoint " << j << " address: 0x" << std::setfill('0') << std::setw(2) << std::hex<<(int)EndpointDesc->bEndpointAddress << std::dec << std::endl;
+		for (int j = 0; j < MyDamnInterfaceDescriptor->bNumEndpoints; j++) {
+			MyDamnEndpointDescriptor = &(MyDamnInterfaceDescriptor->endpoint[j]);
+			std::cout << "  Endpoint " << j << " address: 0x" << std::setfill('0') << std::setw(2) << std::hex<<(int)MyDamnEndpointDescriptor->bEndpointAddress << std::dec << std::endl;
 		}
 	}
 }
@@ -362,31 +362,10 @@ int TIM_ClaimInterface(libusb_device_handle* Devicehandle)
 	return ReturnValue;
 }
 
-
-int main(void)
+void TIM_PlayWithDeviceDescriptor()
 {
 
-
-	//Initialisations
-	TIM_InitContextPointer(MyDamnContext);
-	NumberOfDevices = TIM_GetDeviceList(MyDamnContext, MyDamnDevices);
-	MyDamnHandle = TIM_GetDeviceHandlePointer(MyDamnContext);
-	MyDamnDevice = TIM_GetDevicePointer(MyDamnHandle);
-	MyDamnConfigDescriptor = TIM_GetActiveConfigDescriptorPointer(MyDamnDevice, MyDamnConfigDescriptor);
-	TIM_PrintInterfacesAndEndpoints(MyDamnConfigDescriptor, interface,endpoint);
-	
-	
 	FoundDeviceDescriptor = libusb_get_device_descriptor(MyDamnDevice, &MyDamnDescriptor);
-	
-	
-	
-	
-	
-	
-	
-	int num_interfaces = (int)MyDamnDescriptor.bNumConfigurations;
-	std::cout << "SLURRY: Number of interfaces: " << num_interfaces << std::endl;
-
 	if (FoundDeviceDescriptor == 0)
 	{
 		/***************************************/
@@ -400,7 +379,7 @@ int main(void)
 			std::cerr << "Error getting string descriptor: " << libusb_error_name(length) << std::endl;
 			libusb_close(MyDamnHandle);
 			libusb_exit(MyDamnContext);
-			return 1;
+			//return 1;
 		}
 
 		std::cout << "Manufacturer: " << manufacturer << std::endl;
@@ -415,7 +394,7 @@ int main(void)
 			std::cerr << "Error getting string descriptor: " << libusb_error_name(length) << std::endl;
 			libusb_close(MyDamnHandle);
 			libusb_exit(MyDamnContext);
-			return 1;
+		//	return 1;
 		}
 
 		std::cout << "Product: " << Product << std::endl;
@@ -429,7 +408,7 @@ int main(void)
 			std::cerr << "Error getting string descriptor: " << libusb_error_name(length) << std::endl;
 			libusb_close(MyDamnHandle);
 			libusb_exit(MyDamnContext);
-			return 1;
+		//	return 1;
 		}
 
 		std::cout << "Serial: " << Serial << std::endl;
@@ -438,10 +417,10 @@ int main(void)
 				/***************************************/
 
 		libusb_set_debug(MyDamnContext, LIBUSB_LOG_LEVEL_WARNING);
-		
+
 
 		std::vector<uint16_t> MyDamnSerialData(256);
-		
+
 		unsigned char* ptr = reinterpret_cast<unsigned char*>(MyDamnSerialData.data());
 		std::cout << "ptr: " << static_cast<void*>(ptr) << std::endl;
 
@@ -453,7 +432,7 @@ int main(void)
 			std::cerr << "Error getting string descriptor: " << libusb_error_name(length) << std::endl;
 			libusb_close(MyDamnHandle);
 			libusb_exit(MyDamnContext);
-			return 1;
+			//return 1;
 		}
 
 		std::cout << "Serial number: " << utf16_to_utf8(MyDamnSerialData);
@@ -461,34 +440,34 @@ int main(void)
 
 		/***************************************/
 
-		std::cout<<"Found device descriptor..."<<std::endl;
+		std::cout << "Found device descriptor..." << std::endl;
 		//std::cout <<"0x" << std::setfill('0') << std::setw(2) << std::hex << +a << " -- ";
 		//std::cout<<"(bus %d, device %d)\n" << std::setfill('0') << std::setw(2) << std::hex <<libusb_get_bus_number(MyDamnDevice)<< libusb_get_device_address(MyDamnDevice);
 
-		
-		
-		std::cout<<"	(bus: " << uint8ToBCDandHEX(libusb_get_bus_number(MyDamnDevice)) <<" Device: "<< uint8ToBCDandHEX(libusb_get_device_address(MyDamnDevice))<<std::endl;
-		std::cout<<"	SerialNumber:					" << uint8ToBCDandHEX(MyDamnDescriptor.iSerialNumber)<<std::endl;
-		std::cout<<"	BCD Device:					"<< uint16ToBCDandHEX(MyDamnDescriptor.bcdDevice) << std::endl; // Device release number - USB Specification Release Number in Binary - Coded Decimal(i.e., 2.10 is 210h). This field identifies the release of the USB Specification with which the device and its descriptors are compliant.
-		std::cout<<"	BCD USB:					"<< uint16ToBCDandHEX(MyDamnDescriptor.bcdUSB)<< std::endl;
-		std::cout<<"	DescriptorType:					"<<getEnumString_DescriptorType(MyDamnDescriptor.bDescriptorType)<<std::endl;
-		std::cout<<"	DeviceClass:					" <<getEnumString_ClassCode(MyDamnDescriptor.bDeviceClass) << std::endl;
-		std::cout<<"	Device Protocol:				" << uint8ToBCDandHEX(MyDamnDescriptor.bDeviceProtocol)<< std::endl;
-		std::cout<<"	DeviceSubclass:					" << getEnumString_ClassCode(MyDamnDescriptor.bDeviceSubClass) << std::endl;
-		std::cout<<"	Length (bytes):					" << (int)MyDamnDescriptor.bLength << std::endl;
-		std::cout<<"	Max packet size (for endpoint 0):		" << (int)MyDamnDescriptor.bMaxPacketSize0 << std::endl;
-		std::cout<<"	Number of configurations:			" << (int)MyDamnDescriptor.bNumConfigurations << std::endl;
-		std::cout<<"	Product ID:					" << uint16ToBCDandHEX(MyDamnDescriptor.idProduct) << std::endl;
-		std::cout<<"	Vendor ID:					" << uint16ToBCDandHEX(MyDamnDescriptor.idVendor) << std::endl;
-		std::cout<<"	Manufacturer: (index)				" << (int)MyDamnDescriptor.iManufacturer << std::endl;
-		std::cout<<"	Product: (index)				" << (int)MyDamnDescriptor.iProduct << std::endl;
-		std::cout<<"	Serial number: (index)				"<<(int)MyDamnDescriptor.iSerialNumber << std::endl;
+
+
+		std::cout << "	(bus: " << uint8ToBCDandHEX(libusb_get_bus_number(MyDamnDevice)) << " Device: " << uint8ToBCDandHEX(libusb_get_device_address(MyDamnDevice)) << std::endl;
+		std::cout << "	SerialNumber:					" << uint8ToBCDandHEX(MyDamnDescriptor.iSerialNumber) << std::endl;
+		std::cout << "	BCD Device:					" << uint16ToBCDandHEX(MyDamnDescriptor.bcdDevice) << std::endl; // Device release number - USB Specification Release Number in Binary - Coded Decimal(i.e., 2.10 is 210h). This field identifies the release of the USB Specification with which the device and its descriptors are compliant.
+		std::cout << "	BCD USB:					" << uint16ToBCDandHEX(MyDamnDescriptor.bcdUSB) << std::endl;
+		std::cout << "	DescriptorType:					" << getEnumString_DescriptorType(MyDamnDescriptor.bDescriptorType) << std::endl;
+		std::cout << "	DeviceClass:					" << getEnumString_ClassCode(MyDamnDescriptor.bDeviceClass) << std::endl;
+		std::cout << "	Device Protocol:				" << uint8ToBCDandHEX(MyDamnDescriptor.bDeviceProtocol) << std::endl;
+		std::cout << "	DeviceSubclass:					" << getEnumString_ClassCode(MyDamnDescriptor.bDeviceSubClass) << std::endl;
+		std::cout << "	Length (bytes):					" << (int)MyDamnDescriptor.bLength << std::endl;
+		std::cout << "	Max packet size (for endpoint 0):		" << (int)MyDamnDescriptor.bMaxPacketSize0 << std::endl;
+		std::cout << "	Number of configurations:			" << (int)MyDamnDescriptor.bNumConfigurations << std::endl;
+		std::cout << "	Product ID:					" << uint16ToBCDandHEX(MyDamnDescriptor.idProduct) << std::endl;
+		std::cout << "	Vendor ID:					" << uint16ToBCDandHEX(MyDamnDescriptor.idVendor) << std::endl;
+		std::cout << "	Manufacturer: (index)				" << (int)MyDamnDescriptor.iManufacturer << std::endl;
+		std::cout << "	Product: (index)				" << (int)MyDamnDescriptor.iProduct << std::endl;
+		std::cout << "	Serial number: (index)				" << (int)MyDamnDescriptor.iSerialNumber << std::endl;
 		int shit;
 		//shit = libusb_descriptor_type::LIBUSB_DT_BOS;
 		char* MyDamnData;
 		//libusb_get_descriptor(MyDamnHandle, libusb_descriptor_type::LIBUSB_DT_STRING, MyDamnDescriptor.iManufacturer, MyDamnData, 2);
 
-		int *int_Config =nullptr;
+		int* int_Config = nullptr;
 		int balls = 1;
 		int_Config = &balls;
 		int int_FoundConfig = 42;
@@ -498,23 +477,23 @@ int main(void)
 		//int_FoundConfig = libusb_get_config_descriptor(MyDamnDevice, 0, configDescriptor);
 		int_FoundConfig = libusb_get_configuration(MyDamnHandle, int_Config);
 
-		
+
 		if (int_FoundConfig == 0)
 		{
 			std::cout << "int_Config:		" << *int_Config << std::endl;
-			std::cout<<"pretest"<<std::endl;
-			shesh = libusb_get_config_descriptor(MyDamnDevice, 0,&MyDamnConfigDescriptor);
+			std::cout << "pretest" << std::endl;
+			shesh = libusb_get_config_descriptor(MyDamnDevice, 0, &MyDamnConfigDescriptor);
 			std::cout << "posttest" << std::endl;
-			
+
 			//shesh = libusb_get_active_config_descriptor(MyDamnDevice, &MyDamnConfigDescriptor);
-			
+
 			if (shesh == 0)
 			{
-				std::cout<<"%i	ActiveConfigDescriptor - Config Value:"<<MyDamnConfigDescriptor->bConfigurationValue<<std::endl;
-				std::cout<<"%i	ActiveConfigDescriptor - Descriptor Type:" << MyDamnConfigDescriptor->bDescriptorType << std::endl;
-				std::cout<<"%i	ActiveConfigDescriptor - length:" << MyDamnConfigDescriptor->bLength << std::endl;
-				std::cout<<"%i	ActiveConfigDescriptor - attributes:" << MyDamnConfigDescriptor->bmAttributes << std::endl;
-				std::cout<<"%i	ActiveConfigDescriptor - num interfaces:" << uint8ToBCDandHEX(MyDamnConfigDescriptor->bNumInterfaces) << std::endl;
+				std::cout << "%i	ActiveConfigDescriptor - Config Value:" << MyDamnConfigDescriptor->bConfigurationValue << std::endl;
+				std::cout << "%i	ActiveConfigDescriptor - Descriptor Type:" << MyDamnConfigDescriptor->bDescriptorType << std::endl;
+				std::cout << "%i	ActiveConfigDescriptor - length:" << MyDamnConfigDescriptor->bLength << std::endl;
+				std::cout << "%i	ActiveConfigDescriptor - attributes:" << MyDamnConfigDescriptor->bmAttributes << std::endl;
+				std::cout << "%i	ActiveConfigDescriptor - num interfaces:" << uint8ToBCDandHEX(MyDamnConfigDescriptor->bNumInterfaces) << std::endl;
 				//std::cout<<"%i	ActiveConfigDescriptor - extra:" << MyDamnConfigDescriptor->extra << std::endl;
 				//std::cout<<"%i	ActiveConfigDescriptor - extra length:" << MyDamnConfigDescriptor->extra_length << std::endl;
 				//std::cout<<"%i	ActiveConfigDescriptor - iconfiguration:" << MyDamnConfigDescriptor->iConfiguration << std::endl;
@@ -526,11 +505,11 @@ int main(void)
 			}
 			else
 			{
-				std::cout<<"awwwww:   %s   %s"<<libusb_error_name(shesh)<<"  "<<libusb_strerror(shesh)<<std::endl;
+				std::cout << "awwwww:   %s   %s" << libusb_error_name(shesh) << "  " << libusb_strerror(shesh) << std::endl;
 				libusb_error_name(shesh);
 				exit(0);
 			}
-			
+
 		}
 		else
 		{
@@ -554,60 +533,76 @@ int main(void)
 	}
 	else
 	{
-		std::cout<<"Did not find device descriptor"<<std::endl;
+		std::cout << "Did not find device descriptor" << std::endl;
 		exit(0);
 	}
 
 
+}
+
+
+void TIM_PlayWithInterrupts()
+{
+
 	/*************************/
 		// Harcoded, got from Wireshark capture of doing a Magnetic stripe read
 
-		std::array<uint8_t, 8> magstripeReadReq_1 = { 0x1b, 0x61, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; //goes green
-		std::array<uint8_t, 8> magstripeReadReq_2 = { 0x1b, 0x72, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; //goes blue
-		int rc = 0;
-		int* bytes_transferred_cnt = nullptr;
-		rc = libusb_interrupt_transfer(MyDamnHandle, 0x01, magstripeReadReq_1.data(), magstripeReadReq_1.size(), bytes_transferred_cnt, 0);
+	std::array<uint8_t, 8> magstripeReadReq_1 = { 0x1b, 0x61, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; //goes green
+	std::array<uint8_t, 8> magstripeReadReq_2 = { 0x1b, 0x72, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; //goes blue
+	int rc = 0;
+	int* bytes_transferred_cnt = nullptr;
+	rc = libusb_interrupt_transfer(MyDamnHandle, 0x01, magstripeReadReq_1.data(), magstripeReadReq_1.size(), bytes_transferred_cnt, 0);
 
-		if (rc != libusb_error::LIBUSB_SUCCESS)
-		{
-			std::cerr << "ERROR: Couldn't send magstripe read sequence initiation command, rc=" << rc << std::endl;
-			return -1;
-		}
-		else
-		{
-			std::cout << "holy crap it worked." << std::endl;
-		}
-
-
-
-		//02 00 02 0c 01 0f 00 00
-		std::array<uint8_t, 8> DeviceVersionNumber = { 0x02, 0x00, 0x02, 0x0c, 0x01, 0x0f , 0x00 , 0x00 };
-		rc = libusb_interrupt_transfer(MyDamnHandle, 0x01, DeviceVersionNumber.data(), DeviceVersionNumber.size(), bytes_transferred_cnt, 0);
-
-		if (rc != libusb_error::LIBUSB_SUCCESS)
-		{
-			std::cerr << "ERROR: Couldn't send magstripe read sequence initiation command, rc=" << rc << std::endl;
-			return -1;
-		}
-		else
-		{
-			std::cout << "holy crap it worked.  :" << DeviceVersionNumber.size()<<std::endl;
-		}
+	if (rc != libusb_error::LIBUSB_SUCCESS)
+	{
+		std::cerr << "ERROR: Couldn't send magstripe read sequence initiation command, rc=" << rc << std::endl;
+		//return -1;
+	}
+	else
+	{
+		std::cout << "holy crap it worked." << std::endl;
+	}
 
 
-		std::array<uint8_t, 8> response;
-		unsigned char MyDamnResponse[256];
-		// Receive the response from endpoint 0x81
-		rc = libusb_interrupt_transfer(MyDamnHandle, 0x82, MyDamnResponse, sizeof(MyDamnResponse), bytes_transferred_cnt, 0);
-		if (rc != 0) {
-			std::cerr << "Error receiving interrupt transfer: " << libusb_error_name(rc)<< std::endl;
-		}
-		else {
-			std::cout << "Interrupt transfer received successfully, "<< bytes_transferred_cnt << " bytes transferred. >>>>:" << MyDamnResponse<<std::endl;
-		}
+
+	//02 00 02 0c 01 0f 00 00
+	std::array<uint8_t, 8> DeviceVersionNumber = { 0x02, 0x00, 0x02, 0x0c, 0x01, 0x0f , 0x00 , 0x00 };
+	rc = libusb_interrupt_transfer(MyDamnHandle, 0x01, DeviceVersionNumber.data(), DeviceVersionNumber.size(), bytes_transferred_cnt, 0);
+
+	if (rc != libusb_error::LIBUSB_SUCCESS)
+	{
+		std::cerr << "ERROR: Couldn't send magstripe read sequence initiation command, rc=" << rc << std::endl;
+		//return -1;
+	}
+	else
+	{
+		std::cout << "holy crap it worked.  :" << DeviceVersionNumber.size() << std::endl;
+	}
+
+
+	std::array<uint8_t, 8> response;
+	unsigned char MyDamnResponse[256];
+	// Receive the response from endpoint 0x81
+	rc = libusb_interrupt_transfer(MyDamnHandle, 0x82, MyDamnResponse, sizeof(MyDamnResponse), bytes_transferred_cnt, 0);
+	if (rc != 0) {
+		std::cerr << "Error receiving interrupt transfer: " << libusb_error_name(rc) << std::endl;
+	}
+	else {
+		std::cout << "Interrupt transfer received successfully, " << bytes_transferred_cnt << " bytes transferred. >>>>:" << MyDamnResponse << std::endl;
+	}
 	/********************/
+}
 
-	
+int main(void)
+{
+	TIM_InitContextPointer(MyDamnContext);
+	NumberOfDevices = TIM_GetDeviceList(MyDamnContext, MyDamnDevices);
+	MyDamnHandle = TIM_GetDeviceHandlePointer(MyDamnContext);
+	MyDamnDevice = TIM_GetDevicePointer(MyDamnHandle);
+	MyDamnConfigDescriptor = TIM_GetActiveConfigDescriptorPointer(MyDamnDevice, MyDamnConfigDescriptor);
+	TIM_PrintInterfacesAndEndpoints(MyDamnConfigDescriptor);
+	//TIM_PlayWithDeviceDescriptor();
+	//TIM_PlayWithInterrupts();
 	TIM_SHUTITDOWN();
 	
 	return 0;
