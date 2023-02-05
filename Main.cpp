@@ -540,6 +540,23 @@ void TIM_PlayWithDeviceDescriptor()
 
 }
 
+void TIM_Current(std::array<uint8_t, 8> Data,libusb_device_handle* DeviceHandle, uint8_t Endpoint)
+{
+	int* bytes_transferred_cnt = nullptr;
+	int rc = 0;
+	rc = libusb_interrupt_transfer(MyDamnHandle, Endpoint, Data.data(), Data.size(), bytes_transferred_cnt, 0);
+
+	if (rc != libusb_error::LIBUSB_SUCCESS)
+	{
+		std::cerr << "ERROR: Couldn't send magstripe read sequence initiation command, rc=" << rc << std::endl;
+		//return -1;
+	}
+	else
+	{
+		std::cout << "holy crap it worked.  :" << Data.size() << std::endl;
+	}
+}
+
 
 void TIM_PlayWithInterrupts()
 {
@@ -549,47 +566,32 @@ void TIM_PlayWithInterrupts()
 
 	std::array<uint8_t, 8> magstripeReadReq_1 = { 0x1b, 0x61, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; //goes green
 	std::array<uint8_t, 8> magstripeReadReq_2 = { 0x1b, 0x72, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; //goes blue
-	int rc = 0;
-	int* bytes_transferred_cnt = nullptr;
-	rc = libusb_interrupt_transfer(MyDamnHandle, 0x01, magstripeReadReq_1.data(), magstripeReadReq_1.size(), bytes_transferred_cnt, 0);
-
-	if (rc != libusb_error::LIBUSB_SUCCESS)
-	{
-		std::cerr << "ERROR: Couldn't send magstripe read sequence initiation command, rc=" << rc << std::endl;
-		//return -1;
-	}
-	else
-	{
-		std::cout << "holy crap it worked." << std::endl;
-	}
-
-
-
-	//02 00 02 0c 01 0f 00 00
 	std::array<uint8_t, 8> DeviceVersionNumber = { 0x02, 0x00, 0x02, 0x0c, 0x01, 0x0f , 0x00 , 0x00 };
-	rc = libusb_interrupt_transfer(MyDamnHandle, 0x01, DeviceVersionNumber.data(), DeviceVersionNumber.size(), bytes_transferred_cnt, 0);
-
-	if (rc != libusb_error::LIBUSB_SUCCESS)
-	{
-		std::cerr << "ERROR: Couldn't send magstripe read sequence initiation command, rc=" << rc << std::endl;
-		//return -1;
-	}
-	else
-	{
-		std::cout << "holy crap it worked.  :" << DeviceVersionNumber.size() << std::endl;
-	}
-
-
-	std::array<uint8_t, 8> response;
+	std::array<uint8_t, 8> response = {};
 	unsigned char MyDamnResponse[256];
+
+	TIM_Current(magstripeReadReq_1,MyDamnHandle,0x01);
+	TIM_Current(magstripeReadReq_2, MyDamnHandle,0x01);
+	TIM_Current(DeviceVersionNumber, MyDamnHandle,0x01);
+	
+	
+	TIM_Current(response, MyDamnHandle, 0x82);
+	std::cout << response.data() << std::endl;
+
+
+
+	
+	/*
 	// Receive the response from endpoint 0x81
-	rc = libusb_interrupt_transfer(MyDamnHandle, 0x82, MyDamnResponse, sizeof(MyDamnResponse), bytes_transferred_cnt, 0);
+	int rc = libusb_interrupt_transfer(MyDamnHandle, 0x82, MyDamnResponse, sizeof(MyDamnResponse), bytes_transferred_cnt, 0);
 	if (rc != 0) {
 		std::cerr << "Error receiving interrupt transfer: " << libusb_error_name(rc) << std::endl;
 	}
 	else {
 		std::cout << "Interrupt transfer received successfully, " << bytes_transferred_cnt << " bytes transferred. >>>>:" << MyDamnResponse << std::endl;
 	}
+	*/
+
 	/********************/
 }
 
@@ -601,8 +603,8 @@ int main(void)
 	MyDamnDevice = TIM_GetDevicePointer(MyDamnHandle);
 	MyDamnConfigDescriptor = TIM_GetActiveConfigDescriptorPointer(MyDamnDevice, MyDamnConfigDescriptor);
 	TIM_PrintInterfacesAndEndpoints(MyDamnConfigDescriptor);
-	//TIM_PlayWithDeviceDescriptor();
-	//TIM_PlayWithInterrupts();
+	TIM_PlayWithDeviceDescriptor();
+	TIM_PlayWithInterrupts();
 	TIM_SHUTITDOWN();
 	
 	return 0;
