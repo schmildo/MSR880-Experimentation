@@ -1,22 +1,3 @@
-/*
- * libusb example program to list devices on the bus
- * Copyright © 2007 Daniel Drake <dsd@gentoo.org>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
 #pragma warning(disable : 4996) //disables worrying about depreciated code (libusb_init/libusb_init_context)... because the context version isnt in the library file.. wtf!
 
 #include <stdio.h>
@@ -215,14 +196,27 @@ std::string getEnumString_ClassCode(int i)
 
 static void print_devs(libusb_device** devs)
 {
-	libusb_device* dev;
+	libusb_device* dev = nullptr;
 	int i = 0, j = 0;
 	uint8_t path[8];
-
-	while ((dev = devs[i++]) != nullptr) {
+	std::cout << "A" << std::endl;
+	//std::cout << &devs[0];
+	//if (devs[0] != nullptr)std::cout << "first dev is not null" << std::endl;
+	/****************/
+	for (i = 0; i < 2; i++)
+	{
+		std::cout << "B" << std::endl;
+		struct libusb_device_descriptor Ddescriptor;
+		int r = libusb_get_device_descriptor(devs[i], &Ddescriptor);
+		std::cout << "%04x:%04x (bus %d, device %d)", Ddescriptor.idVendor, Ddescriptor.idProduct, libusb_get_bus_number(dev), libusb_get_device_address(dev);
+	}
+	/****************/
+	while ((dev = devs[i++]) != nullptr)
+	{
 		struct libusb_device_descriptor desc;
 		int r = libusb_get_device_descriptor(dev, &desc);
-		if (r < 0) {
+		if (r < 0)
+		{
 			std::cout<<"failed to get device descriptor"<<std::endl;
 			return;
 		}
@@ -230,13 +224,15 @@ static void print_devs(libusb_device** devs)
 		std::cout<<"%04x:%04x (bus %d, device %d)",desc.idVendor, desc.idProduct,libusb_get_bus_number(dev), libusb_get_device_address(dev);
 
 		r = libusb_get_port_numbers(dev, path, sizeof(path));
-		if (r > 0) {
+		if (r > 0)
+		{
 			std::cout<<" path: %d"<<path[0]<<std::endl;
 			for (j = 1; j < r; j++)
 				std::cout<<".%d"<<path[j]<<std::endl;
 		}
 		std::cout<<"\n"<<std::endl;
 	}
+	std::cout << "Z" << std::endl;
 }
 
 libusb_device_handle *TIM_GetDeviceHandlePointer(libusb_context* USB_Context, uint16_t IDVendor = 0x0802, uint16_t IDProduct = 0x0005)
@@ -271,7 +267,7 @@ void TIM_InitContextPointer(libusb_context* OUT_Context)
 	}
 }
 
-int TIM_GetDeviceList(libusb_context* IN_Context, libusb_device** OUT_DeviceList)
+int TIM_GetDeviceList(libusb_context* IN_Context, libusb_device**& OUT_DeviceList)
 {
 	ssize_t cnt = libusb_get_device_list(IN_Context, &OUT_DeviceList);
 	if (cnt < 0)
@@ -544,6 +540,7 @@ void TIM_Current(std::array<uint8_t, 8> Data,libusb_device_handle* DeviceHandle,
 {
 	int* bytes_transferred_cnt = nullptr;
 	int rc = 0;
+	//std::cout << "Size in bytes of the input before:" << Data.size() << std::endl;
 	rc = libusb_interrupt_transfer(MyDamnHandle, Endpoint, Data.data(), Data.size(), bytes_transferred_cnt, 0);
 
 	if (rc != libusb_error::LIBUSB_SUCCESS)
@@ -553,10 +550,30 @@ void TIM_Current(std::array<uint8_t, 8> Data,libusb_device_handle* DeviceHandle,
 	}
 	else
 	{
-		std::cout << "holy crap it worked.  :" << Data.size() << std::endl;
+		//std::cout << "Size in bytes of the input after:" << Data.size() << std::endl;
+		if(bytes_transferred_cnt!=nullptr)std::cout << "testicles:" << *bytes_transferred_cnt << std::endl;
 	}
 }
 
+
+void TIM_Current2(unsigned char* Data, libusb_device_handle* DeviceHandle, uint8_t Endpoint)
+{
+	int* bytes_transferred_cnt = nullptr;
+	int rc = 0;
+	//std::cout << "Size in bytes of the input before:" << Data.size() << std::endl;
+	rc = libusb_interrupt_transfer(MyDamnHandle, Endpoint, Data, sizeof(Data), bytes_transferred_cnt, 0);
+
+	if (rc != libusb_error::LIBUSB_SUCCESS)
+	{
+		std::cerr << "ERROR: Couldn't send magstripe read sequence initiation command, rc=" << rc << std::endl;
+		//return -1;
+	}
+	else
+	{
+		//std::cout << "Size in bytes of the input after:" << Data.size() << std::endl;
+		if (bytes_transferred_cnt != nullptr)std::cout << "testicles:" << *bytes_transferred_cnt << std::endl;
+	}
+}
 
 void TIM_PlayWithInterrupts()
 {
@@ -567,15 +584,13 @@ void TIM_PlayWithInterrupts()
 	std::array<uint8_t, 8> magstripeReadReq_1 = { 0x1b, 0x61, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; //goes green
 	std::array<uint8_t, 8> magstripeReadReq_2 = { 0x1b, 0x72, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; //goes blue
 	std::array<uint8_t, 8> DeviceVersionNumber = { 0x02, 0x00, 0x02, 0x0c, 0x01, 0x0f , 0x00 , 0x00 };
-	std::array<uint8_t, 8> response = {};
+	std::array<uint8_t, 8> response = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 	unsigned char MyDamnResponse[256];
 
-	TIM_Current(magstripeReadReq_1,MyDamnHandle,0x01);
-	TIM_Current(magstripeReadReq_2, MyDamnHandle,0x01);
+	//TIM_Current(magstripeReadReq_1,MyDamnHandle,0x01);
+	//TIM_Current(magstripeReadReq_2, MyDamnHandle,0x01);
 	TIM_Current(DeviceVersionNumber, MyDamnHandle,0x01);
-	
-	
-	TIM_Current(response, MyDamnHandle, 0x82);
+	TIM_Current2(MyDamnResponse, MyDamnHandle, 0x82);
 	std::cout << response.data() << std::endl;
 
 
@@ -595,12 +610,42 @@ void TIM_PlayWithInterrupts()
 	/********************/
 }
 
+void print_device_info(libusb_device* device) {
+	libusb_device_descriptor desc;
+	int ret = libusb_get_device_descriptor(device, &desc);
+	std::cout << "carpet" << std::endl;
+	if (ret != 0) {
+		std::cerr << "Error getting device descriptor: "
+			<< libusb_error_name(ret) << std::endl;
+		return;
+	}
+
+	std::cout << "idVendor: 0x" << std::hex << desc.idVendor << std::dec << std::endl;
+	std::cout << "idProduct: 0x" << std::hex << desc.idProduct << std::dec << std::endl;
+	std::cout << "Bus number: " << libusb_get_bus_number(device) << std::endl;
+	std::cout << "Device address: " << libusb_get_device_address(device) << std::endl;
+}
+
 int main(void)
 {
 	TIM_InitContextPointer(MyDamnContext);
-	NumberOfDevices = TIM_GetDeviceList(MyDamnContext, MyDamnDevices);
+
+
+	//print_devs(MyDamnDevices);
 	MyDamnHandle = TIM_GetDeviceHandlePointer(MyDamnContext);
 	MyDamnDevice = TIM_GetDevicePointer(MyDamnHandle);
+
+	NumberOfDevices = TIM_GetDeviceList(MyDamnContext, MyDamnDevices);
+	std:: cout << "numdevcie:" <<NumberOfDevices<< std::endl;
+	//libusb_device** device_list;
+	ssize_t num_devices;
+	// Loop through the list of devices and print the info for each one
+	for (ssize_t i = 0; i < NumberOfDevices; i++) {
+		std::cout << "Device " << i << ":" << std::endl;
+		print_device_info(MyDamnDevices[i]);
+		std::cout << std::endl;
+	}
+
 	MyDamnConfigDescriptor = TIM_GetActiveConfigDescriptorPointer(MyDamnDevice, MyDamnConfigDescriptor);
 	TIM_PrintInterfacesAndEndpoints(MyDamnConfigDescriptor);
 	TIM_PlayWithDeviceDescriptor();
