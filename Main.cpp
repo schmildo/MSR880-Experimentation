@@ -675,36 +675,49 @@ void TIM_PlayWithInterrupts()
 }
 
 void print_device_info(libusb_device* device) {
-	libusb_device_descriptor desc;
-	int ret = libusb_get_device_descriptor(device, &desc);
+	libusb_device_descriptor DeviceDesc;
+	libusb_config_descriptor *ConfigDesc;
+	const libusb_interface_descriptor *InterfaceDesc;
+	const libusb_interface* Inteface;
+	libusb_device* ParentDevice;
+	
+
+	int ret = libusb_get_device_descriptor(device, &DeviceDesc);
 	if (ret != 0) {
 		std::cerr << "Error getting device descriptor: "
 			<< libusb_error_name(ret) << std::endl;
 		return;
 	}
 
-	std::cout << "idVendor: 0x" << std::hex << desc.idVendor << std::dec << std::endl;
-	std::cout << "idProduct: 0x" << std::hex << desc.idProduct << std::dec << std::endl;
+	std::cout << "idVendor: 0x" << std::hex << DeviceDesc.idVendor << std::dec << std::endl;
+	std::cout << "idProduct: 0x" << std::hex << DeviceDesc.idProduct << std::dec << std::endl;
 	std::cout << "Bus number: " << int(libusb_get_bus_number(device)) << std::endl;
 	std::cout << "Device address: " << int(libusb_get_device_address(device)) << std::endl;
 	std::cout << "Device speed: " << getEnumString_USBSpeed(libusb_get_device_speed(device)) << std::endl;
 	
-	// 
-	//LIBUSB_SPEED_FULL
-	
 	/*****************************/
-	int r = libusb_get_active_config_descriptor(MyDamnDevice, &MyDamnConfigDescriptor);
-	std::cout << "Port number:" << (int)libusb_get_port_number(MyDamnDevice) << std::endl;
+	int r = libusb_get_active_config_descriptor(device, &ConfigDesc);
+	std::cout << "Port number:" << (int)libusb_get_port_number(device) << std::endl;
+	
 	//WTF - wireshark calls it a usb.bus_id but in libusb its actually a port number????
-	std::cout << "Wireshark Stuff - (port.address.bus): " << (int)libusb_get_port_number(MyDamnDevice) << "." << int(libusb_get_device_address(device)) << "." << int(libusb_get_bus_number(device)) << "     -  Filter: usb.bus_id== " << (int)libusb_get_port_number(MyDamnDevice) << " and usb.device_address == " << int(libusb_get_device_address(device)) << std::endl;
+	std::cout << "Wireshark Stuff - (port.address.bus): " << (int)libusb_get_port_number(device) << "." << int(libusb_get_device_address(device)) << "." << int(libusb_get_bus_number(device)) << "     -  Filter: usb.bus_id== " << (int)libusb_get_port_number(device) << " and usb.device_address == " << int(libusb_get_device_address(device)) << std::endl;
+	
+	//print parent crap
+	if (int(libusb_get_device_address(device)) != 0)
+	{
+		ParentDevice = libusb_get_parent(device);
+		std::cout << "Parent:" << (int)libusb_get_port_number(ParentDevice)<<"."<<int(libusb_get_device_address(ParentDevice)) << "."<<int(libusb_get_bus_number(ParentDevice)) << std::endl;
+	}
+
+	
 	
 
 	if (r == LIBUSB_SUCCESS) {
-		for (int i = 0; i < MyDamnConfigDescriptor->bNumInterfaces; i++) {
-			MyDamnInterface = &MyDamnConfigDescriptor->interface[i];
-			for (int j = 0; j < MyDamnInterface->num_altsetting; j++) {
-				MyDamnInterfaceDescriptor = &MyDamnInterface->altsetting[j];
-				if (MyDamnInterfaceDescriptor->bInterfaceClass == 0x38) {
+		for (int i = 0; i < ConfigDesc->bNumInterfaces; i++) {
+			Inteface = &ConfigDesc->interface[i];
+			for (int j = 0; j < Inteface->num_altsetting; j++) {
+				InterfaceDesc = &Inteface->altsetting[j];
+				if (InterfaceDesc->bInterfaceClass == 0x38) {
 					// WebUSB interface descriptor found
 					// ...
 					std::cout << "HOLY SHIT THATS BAD this device has usb web api!" << std::endl;
@@ -719,6 +732,11 @@ void print_device_info(libusb_device* device) {
 
 int main(void)
 {
+
+	std::cout << "libusbverion:describe:" << libusb_get_version()->describe << std::endl;
+	std::cout << "Major:" << libusb_get_version()->major << std::endl;
+
+
 	TIM_InitContextPointer(MyDamnContext);
 
 
