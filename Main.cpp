@@ -36,7 +36,13 @@ libusb_device* MyDamnDevice = nullptr;
 libusb_device_descriptor MyDamnDescriptor;
 
 const libusb_interface_descriptor* MyDamnInterfaceDescriptor = nullptr;
+const libusb_interface* MyDamnInterface = nullptr;
 const libusb_endpoint_descriptor* MyDamnEndpointDescriptor = nullptr;
+
+
+
+
+
 
 
 std::string utf16_to_utf8(const std::vector<uint16_t>& utf16) {
@@ -72,7 +78,64 @@ std::string uint16ToBCDandHEX(uint16_t value) {
 	return "0x" + result.str();
 }
 
+void CHECKIFBASTARDSAREUSINGUSBWEBAPI()
+{
+	std::cout << "START USB WEB API CHECKING" << std::endl;
+	libusb_device_handle* device_handle;
+	libusb_device* device = nullptr;
+	struct libusb_config_descriptor* config;
+	const struct libusb_interface* interface;
+	const struct libusb_interface_descriptor* interface_desc;
+	int r;
 
+	r = libusb_get_active_config_descriptor(MyDamnDevice, &config);
+	std::cout << "BICKIE port number:" << uint8ToBCDandHEX(libusb_get_port_number(MyDamnDevice)) << std::endl;
+	if (r == LIBUSB_SUCCESS) {
+		for (int i = 0; i < config->bNumInterfaces; i++) {
+			interface = &config->interface[i];
+			for (int j = 0; j < interface->num_altsetting; j++) {
+				interface_desc = &interface->altsetting[j];
+				if (interface_desc->bInterfaceClass == 0x38) {
+					// WebUSB interface descriptor found
+					// ...
+					std::cout << "HOLY SHIT THATS BAD this device has usb web api!" << std::endl;
+				}
+			}
+		}
+	}
+
+	
+
+	std::cout << "FINISHED USB WEB API CHECKING" << std::endl;
+
+}
+std::string getEnumString_USBSpeed(int i)
+{
+	switch (i)
+	{
+	case libusb_speed::LIBUSB_SPEED_FULL:
+			return "LIBUSB_SPEED_FULL (12Mb/s)";
+			break;
+	case libusb_speed::LIBUSB_SPEED_HIGH:
+		return "LIBUSB_SPEED_HIGH (480Mb/s)";
+			break;
+	case libusb_speed::LIBUSB_SPEED_LOW:
+		return "LIBUSB_SPEED_LOW (1.5Mb/s)";
+		break;
+	case libusb_speed::LIBUSB_SPEED_SUPER:
+		return "LIBUSB_SPEED_SUPER (5000Mb/s)";
+		break;
+	case libusb_speed::LIBUSB_SPEED_SUPER_PLUS:
+		return "LIBUSB_SPEED_SUPER_PLUS (10000Mb/s)";
+		break;
+	case libusb_speed::LIBUSB_SPEED_UNKNOWN:
+		return "LIBUSB_SPEED_UNKNOWN (???Mb/s)";
+		break;
+	default:
+		std::cout << " NOPE! your enum was out of range" << std::endl;
+		exit(0);
+	}
+}
 
 std::string getEnumString_DescriptorType(int i)
 {
@@ -337,6 +400,7 @@ void TIM_SHUTITDOWN()
 	libusb_exit(MyDamnContext);
 	libusb_free_device_list(MyDamnDevices, 1);
 	libusb_exit(nullptr);
+	std::cout << "SAFE EXIT" << std::endl;
 }
 
 
@@ -613,7 +677,6 @@ void TIM_PlayWithInterrupts()
 void print_device_info(libusb_device* device) {
 	libusb_device_descriptor desc;
 	int ret = libusb_get_device_descriptor(device, &desc);
-	std::cout << "carpet" << std::endl;
 	if (ret != 0) {
 		std::cerr << "Error getting device descriptor: "
 			<< libusb_error_name(ret) << std::endl;
@@ -622,8 +685,36 @@ void print_device_info(libusb_device* device) {
 
 	std::cout << "idVendor: 0x" << std::hex << desc.idVendor << std::dec << std::endl;
 	std::cout << "idProduct: 0x" << std::hex << desc.idProduct << std::dec << std::endl;
-	std::cout << "Bus number: " << uint8ToBCDandHEX(libusb_get_bus_number(device)) << std::endl;
-	std::cout << "Device address: " << uint8ToBCDandHEX(libusb_get_device_address(device)) << std::endl;
+	std::cout << "Bus number: " << int(libusb_get_bus_number(device)) << std::endl;
+	std::cout << "Device address: " << int(libusb_get_device_address(device)) << std::endl;
+	std::cout << "Device speed: " << getEnumString_USBSpeed(libusb_get_device_speed(device)) << std::endl;
+	
+	// 
+	//LIBUSB_SPEED_FULL
+	
+	/*****************************/
+	int r = libusb_get_active_config_descriptor(MyDamnDevice, &MyDamnConfigDescriptor);
+	std::cout << "Port number:" << (int)libusb_get_port_number(MyDamnDevice) << std::endl;
+	//WTF - wireshark calls it a usb.bus_id but in libusb its actually a port number????
+	std::cout << "Wireshark Stuff - (port.address.bus): " << (int)libusb_get_port_number(MyDamnDevice) << "." << int(libusb_get_device_address(device)) << "." << int(libusb_get_bus_number(device)) << "     -  Filter: usb.bus_id== " << (int)libusb_get_port_number(MyDamnDevice) << " and usb.device_address == " << int(libusb_get_device_address(device)) << std::endl;
+	
+
+	if (r == LIBUSB_SUCCESS) {
+		for (int i = 0; i < MyDamnConfigDescriptor->bNumInterfaces; i++) {
+			MyDamnInterface = &MyDamnConfigDescriptor->interface[i];
+			for (int j = 0; j < MyDamnInterface->num_altsetting; j++) {
+				MyDamnInterfaceDescriptor = &MyDamnInterface->altsetting[j];
+				if (MyDamnInterfaceDescriptor->bInterfaceClass == 0x38) {
+					// WebUSB interface descriptor found
+					// ...
+					std::cout << "HOLY SHIT THATS BAD this device has usb web api!" << std::endl;
+				}
+			}
+		}
+	}
+	/***********************/
+	
+	
 }
 
 int main(void)
@@ -637,19 +728,33 @@ int main(void)
 
 	NumberOfDevices = TIM_GetDeviceList(MyDamnContext, MyDamnDevices);
 	std:: cout << "numdevcie:" <<NumberOfDevices<< std::endl;
-	//libusb_device** device_list;
-	ssize_t num_devices;
-	// Loop through the list of devices and print the info for each one
-	for (ssize_t i = 0; i < NumberOfDevices; i++) {
-		std::cout << "Device " << i << ":" << std::endl;
-		print_device_info(MyDamnDevices[i]);
-		std::cout << std::endl;
-	}
+
+
 
 	MyDamnConfigDescriptor = TIM_GetActiveConfigDescriptorPointer(MyDamnDevice, MyDamnConfigDescriptor);
 	TIM_PrintInterfacesAndEndpoints(MyDamnConfigDescriptor);
 	TIM_PlayWithDeviceDescriptor();
 	TIM_PlayWithInterrupts();
+	CHECKIFBASTARDSAREUSINGUSBWEBAPI();
+
+	/**********************************************************/
+
+
+	//libusb_device** device_list;
+	ssize_t num_devices;
+	// Loop through the list of devices and print the info for each one
+	for (ssize_t i = 0; i < NumberOfDevices; i++) {
+		std::cout << "Device " << i << ":" << std::endl;
+		MyDamnDevice = MyDamnDevices[i];
+		print_device_info(MyDamnDevice);
+		
+
+	
+		std::cout << std::endl;
+	}
+	
+
+
 	TIM_SHUTITDOWN();
 	
 	return 0;
