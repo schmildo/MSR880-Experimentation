@@ -674,6 +674,42 @@ void TIM_PlayWithInterrupts()
 	/********************/
 }
 
+void TIM_PrintWebAPICheck(libusb_device* device)
+{
+	const libusb_interface* Inteface;
+	libusb_config_descriptor* ConfigDesc;
+	const libusb_interface_descriptor* InterfaceDesc;
+	int s = libusb_get_active_config_descriptor(device, &ConfigDesc);
+	if (s == LIBUSB_SUCCESS)
+	{
+		for (int i = 0; i < ConfigDesc->bNumInterfaces; i++) {
+			Inteface = &ConfigDesc->interface[i];
+			for (int j = 0; j < Inteface->num_altsetting; j++) {
+				InterfaceDesc = &Inteface->altsetting[j];
+				if (InterfaceDesc->bInterfaceClass == 0x38) {
+					// WebUSB interface descriptor found
+					// ...
+					std::cout << "HOLY SHIT THATS BAD this device has usb web api!" << std::endl;
+				}
+			}
+		}
+	}
+}
+
+void TIM_PrintParentDevice(libusb_device* device)
+{
+	//print parent crap
+	if (int(libusb_get_device_address(device)) != 0)
+	{
+		ParentDevice = libusb_get_parent(device);
+		std::cout << "Parent:" << (int)libusb_get_port_number(ParentDevice) << "." << int(libusb_get_device_address(ParentDevice)) << "." << int(libusb_get_bus_number(ParentDevice)) << std::endl;
+	}
+	else
+	{
+		//this is a root device
+	}	//return ParentDevice;
+}
+
 void print_device_info(libusb_device* device) {
 	libusb_device_descriptor DeviceDesc;
 	libusb_config_descriptor *ConfigDesc;
@@ -702,31 +738,8 @@ void print_device_info(libusb_device* device) {
 	//WTF - wireshark calls it a usb.bus_id but in libusb its actually a port number????
 	std::cout << "Wireshark Stuff - (port.address.bus): " << (int)libusb_get_port_number(device) << "." << int(libusb_get_device_address(device)) << "." << int(libusb_get_bus_number(device)) << "     -  Filter: usb.bus_id== " << (int)libusb_get_port_number(device) << " and usb.device_address == " << int(libusb_get_device_address(device)) << std::endl;
 	
-	//print parent crap
-	if (int(libusb_get_device_address(device)) != 0)
-	{
-		ParentDevice = libusb_get_parent(device);
-		std::cout << "Parent:" << (int)libusb_get_port_number(ParentDevice)<<"."<<int(libusb_get_device_address(ParentDevice)) << "."<<int(libusb_get_bus_number(ParentDevice)) << std::endl;
-	}
-
-	
-	
-
-	if (r == LIBUSB_SUCCESS) {
-		for (int i = 0; i < ConfigDesc->bNumInterfaces; i++) {
-			Inteface = &ConfigDesc->interface[i];
-			for (int j = 0; j < Inteface->num_altsetting; j++) {
-				InterfaceDesc = &Inteface->altsetting[j];
-				if (InterfaceDesc->bInterfaceClass == 0x38) {
-					// WebUSB interface descriptor found
-					// ...
-					std::cout << "HOLY SHIT THATS BAD this device has usb web api!" << std::endl;
-				}
-			}
-		}
-	}
-	/***********************/
-	
+	TIM_PrintParentDevice(device);
+	TIM_PrintWebAPICheck(device);
 	
 }
 
@@ -738,12 +751,10 @@ int main(void)
 
 
 	TIM_InitContextPointer(MyDamnContext);
-
-
-	//print_devs(MyDamnDevices);
 	MyDamnHandle = TIM_GetDeviceHandlePointer(MyDamnContext);
 	MyDamnDevice = TIM_GetDevicePointer(MyDamnHandle);
 
+	//print_devs(MyDamnDevices);
 	NumberOfDevices = TIM_GetDeviceList(MyDamnContext, MyDamnDevices);
 	std:: cout << "numdevcie:" <<NumberOfDevices<< std::endl;
 
