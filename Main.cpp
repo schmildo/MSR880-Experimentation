@@ -359,14 +359,13 @@ libusb_device* TIM_GetDevicePointer(libusb_device_handle* Devicehandle)
 }
 
 
-libusb_config_descriptor* TIM_GetActiveConfigDescriptorPointer(libusb_device* Device,libusb_config_descriptor* ConfigDescriptor)
+libusb_config_descriptor* TIM_GetActiveConfigDescriptorPointer(libusb_device* Device)
 {
 	libusb_config_descriptor* ReturnValue = nullptr;
-	int success = libusb_get_active_config_descriptor(Device, &ConfigDescriptor);
+	int success = libusb_get_active_config_descriptor(Device, &ReturnValue);
 	if (success==0)
 	{
 		std::cout << "Found device config descriptor" << std::endl;
-		ReturnValue = ConfigDescriptor;
 	}
 	else
 	{
@@ -698,6 +697,7 @@ void TIM_PrintWebAPICheck(libusb_device* device)
 
 void TIM_PrintParentDevice(libusb_device* device)
 {
+	libusb_device* ParentDevice;
 	//print parent crap
 	if (int(libusb_get_device_address(device)) != 0)
 	{
@@ -710,37 +710,39 @@ void TIM_PrintParentDevice(libusb_device* device)
 	}	//return ParentDevice;
 }
 
-void print_device_info(libusb_device* device) {
-	libusb_device_descriptor DeviceDesc;
-	libusb_config_descriptor *ConfigDesc;
-	const libusb_interface_descriptor *InterfaceDesc;
-	const libusb_interface* Inteface;
-	libusb_device* ParentDevice;
-	
-
-	int ret = libusb_get_device_descriptor(device, &DeviceDesc);
-	if (ret != 0) {
-		std::cerr << "Error getting device descriptor: "
-			<< libusb_error_name(ret) << std::endl;
-		return;
+libusb_device_descriptor TIM_GetDeviceDescriptor(libusb_device* Param_Device)
+{
+	libusb_device_descriptor LDeviceDescriptor;
+	int int_ReturnValue = libusb_get_device_descriptor(Param_Device, &LDeviceDescriptor);
+	if (int_ReturnValue != 0)
+	{
+		std::cerr << "Error getting device descriptor: "<< libusb_error_name(int_ReturnValue) << std::endl;
+		exit(0);
 	}
+	return LDeviceDescriptor;
+}
 
-	std::cout << "idVendor: 0x" << std::hex << DeviceDesc.idVendor << std::dec << std::endl;
-	std::cout << "idProduct: 0x" << std::hex << DeviceDesc.idProduct << std::dec << std::endl;
-	std::cout << "Bus number: " << int(libusb_get_bus_number(device)) << std::endl;
-	std::cout << "Device address: " << int(libusb_get_device_address(device)) << std::endl;
-	std::cout << "Device speed: " << getEnumString_USBSpeed(libusb_get_device_speed(device)) << std::endl;
+void print_device_info(libusb_device* Param_Device)
+{
+	libusb_device_descriptor LDesc_Device;
+	libusb_config_descriptor *LDesc_Config;
+	const libusb_interface_descriptor *LDesc_Interface;
+	const libusb_interface* LInteface;
+	libusb_device* L_DeviceParent;
 	
-	/*****************************/
-	int r = libusb_get_active_config_descriptor(device, &ConfigDesc);
-	std::cout << "Port number:" << (int)libusb_get_port_number(device) << std::endl;
+	LDesc_Device = TIM_GetDeviceDescriptor(Param_Device);
+	LDesc_Config = TIM_GetActiveConfigDescriptorPointer(Param_Device);
+
+	std::cout << "idVendor: 0x" << std::hex << LDesc_Device.idVendor << std::dec << std::endl;
+	std::cout << "idProduct: 0x" << std::hex << LDesc_Device.idProduct << std::dec << std::endl;
+	std::cout << "Bus number: " << int(libusb_get_bus_number(Param_Device)) << std::endl;
+	std::cout << "Device address: " << int(libusb_get_device_address(Param_Device)) << std::endl;
+	std::cout << "Device speed: " << getEnumString_USBSpeed(libusb_get_device_speed(Param_Device)) << std::endl;
+	std::cout << "Port number:" << (int)libusb_get_port_number(Param_Device) << std::endl;
+	std::cout << "Wireshark Stuff - (port.address.bus): " << (int)libusb_get_port_number(Param_Device) << "." << int(libusb_get_device_address(Param_Device)) << "." << int(libusb_get_bus_number(Param_Device)) << "     -  Filter: usb.bus_id== " << (int)libusb_get_port_number(Param_Device) << " and usb.device_address == " << int(libusb_get_device_address(Param_Device)) << std::endl; //WTF - wireshark calls it a usb.bus_id but in libusb its actually a port number????
 	
-	//WTF - wireshark calls it a usb.bus_id but in libusb its actually a port number????
-	std::cout << "Wireshark Stuff - (port.address.bus): " << (int)libusb_get_port_number(device) << "." << int(libusb_get_device_address(device)) << "." << int(libusb_get_bus_number(device)) << "     -  Filter: usb.bus_id== " << (int)libusb_get_port_number(device) << " and usb.device_address == " << int(libusb_get_device_address(device)) << std::endl;
-	
-	TIM_PrintParentDevice(device);
-	TIM_PrintWebAPICheck(device);
-	
+	TIM_PrintParentDevice(Param_Device);
+	TIM_PrintWebAPICheck(Param_Device);
 }
 
 int main(void)
@@ -753,32 +755,26 @@ int main(void)
 	TIM_InitContextPointer(MyDamnContext);
 	MyDamnHandle = TIM_GetDeviceHandlePointer(MyDamnContext);
 	MyDamnDevice = TIM_GetDevicePointer(MyDamnHandle);
+	MyDamnConfigDescriptor = TIM_GetActiveConfigDescriptorPointer(MyDamnDevice);
 
-	//print_devs(MyDamnDevices);
-	NumberOfDevices = TIM_GetDeviceList(MyDamnContext, MyDamnDevices);
-	std:: cout << "numdevcie:" <<NumberOfDevices<< std::endl;
+	NumberOfDevices = TIM_GetDeviceList(MyDamnContext, MyDamnDevices); //print_devs(MyDamnDevices);
+	std:: cout << "Number of devices:" <<NumberOfDevices<< std::endl;
 
-
-
-	MyDamnConfigDescriptor = TIM_GetActiveConfigDescriptorPointer(MyDamnDevice, MyDamnConfigDescriptor);
 	TIM_PrintInterfacesAndEndpoints(MyDamnConfigDescriptor);
 	TIM_PlayWithDeviceDescriptor();
 	TIM_PlayWithInterrupts();
 	CHECKIFBASTARDSAREUSINGUSBWEBAPI();
 
+
 	/**********************************************************/
-
-
 	//libusb_device** device_list;
 	ssize_t num_devices;
 	// Loop through the list of devices and print the info for each one
-	for (ssize_t i = 0; i < NumberOfDevices; i++) {
+	for (ssize_t i = 0; i < NumberOfDevices; i++)
+	{
 		std::cout << "Device " << i << ":" << std::endl;
 		MyDamnDevice = MyDamnDevices[i];
 		print_device_info(MyDamnDevice);
-		
-
-	
 		std::cout << std::endl;
 	}
 	
