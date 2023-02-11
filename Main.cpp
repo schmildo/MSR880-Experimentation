@@ -17,6 +17,7 @@
 
 
 
+
 #include <array>
 //#include <stdint.h>
 //#include <chrono>
@@ -601,10 +602,10 @@ void TIM_PlayWithDeviceDescriptor()
 
 void TIM_Current(std::array<uint8_t, 8> Data,libusb_device_handle* DeviceHandle, uint8_t Endpoint)
 {
-	int* bytes_transferred_cnt = nullptr;
+	int bytes_transferred_cnt = 0;
 	int rc = 0;
 	//std::cout << "Size in bytes of the input before:" << Data.size() << std::endl;
-	rc = libusb_interrupt_transfer(MyDamnHandle, Endpoint, Data.data(), Data.size(), bytes_transferred_cnt, 0);
+	rc = libusb_interrupt_transfer(MyDamnHandle, Endpoint, Data.data(), Data.size(), &bytes_transferred_cnt, 0);
 
 	if (rc != libusb_error::LIBUSB_SUCCESS)
 	{
@@ -614,17 +615,17 @@ void TIM_Current(std::array<uint8_t, 8> Data,libusb_device_handle* DeviceHandle,
 	else
 	{
 		//std::cout << "Size in bytes of the input after:" << Data.size() << std::endl;
-		if(bytes_transferred_cnt!=nullptr)std::cout << "testicles:" << *bytes_transferred_cnt << std::endl;
+		if(bytes_transferred_cnt!=0)std::cout << "data size:" << Data.size()<< " and bytes transferred:"<<bytes_transferred_cnt << std::endl;
 	}
 }
 
 
 void TIM_Current2(unsigned char* Data, libusb_device_handle* DeviceHandle, uint8_t Endpoint)
 {
-	int* bytes_transferred_cnt = nullptr;
+	int bytes_transferred_cnt = 0;
 	int rc = 0;
 	//std::cout << "Size in bytes of the input before:" << Data.size() << std::endl;
-	rc = libusb_interrupt_transfer(MyDamnHandle, Endpoint, Data, sizeof(Data), bytes_transferred_cnt, 0);
+	rc = libusb_interrupt_transfer(MyDamnHandle, Endpoint, Data, sizeof(Data), &bytes_transferred_cnt, 0);
 
 	if (rc != libusb_error::LIBUSB_SUCCESS)
 	{
@@ -634,8 +635,23 @@ void TIM_Current2(unsigned char* Data, libusb_device_handle* DeviceHandle, uint8
 	else
 	{
 		//std::cout << "Size in bytes of the input after:" << Data.size() << std::endl;
-		if (bytes_transferred_cnt != nullptr)std::cout << "testicles:" << *bytes_transferred_cnt << std::endl;
+		if (bytes_transferred_cnt != 0)std::cout << "data size:" << sizeof(Data) << " and bytes transferred:" << bytes_transferred_cnt << std::endl;
 	}
+}
+
+std::string TIM_PrintBytesFromData(int NumberOfBytes, unsigned char* data)
+{
+	char a = 'a';
+
+	std::string str_Return ="";
+	for(int i = 0;i<NumberOfBytes;i++)
+	{
+		//std::cout << "x";
+		a = data[i];
+		std::cout << a<<"_";
+		//str_Return = str_Return.append(&a);
+	}
+	return str_Return;
 }
 
 void TIM_PlayWithInterrupts()
@@ -646,32 +662,49 @@ void TIM_PlayWithInterrupts()
 
 	std::array<uint8_t, 8> magstripeReadReq_1 = { 0x1b, 0x61, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; //goes green
 	std::array<uint8_t, 8> magstripeReadReq_2 = { 0x1b, 0x72, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; //goes blue
-	std::array<uint8_t, 8> DeviceVersionNumber = { 0x02, 0x00, 0x02, 0x0c, 0x01, 0x0f , 0x00 , 0x00 };
+	std::array<uint8_t, 8> DeviceVersionNumber = {0x02, 0x00, 0x02, 0x0c, 0x01, 0x0f ,0x00 ,0x00 };
 	std::array<uint8_t, 8> response = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 	unsigned char MyDamnResponse[256];
 
 	//TIM_Current(magstripeReadReq_1,MyDamnHandle,0x01);
 	//TIM_Current(magstripeReadReq_2, MyDamnHandle,0x01);
 	TIM_Current(DeviceVersionNumber, MyDamnHandle,0x01);
-	TIM_Current2(MyDamnResponse, MyDamnHandle, 0x82);
-	std::cout << response.data() << std::endl;
+	//TIM_Current2(MyDamnResponse, MyDamnHandle, 0x82);
+	//std::cout << response.data() << std::endl;
 
 
 
 	
-	/*
+	
 	// Receive the response from endpoint 0x81
-	int rc = libusb_interrupt_transfer(MyDamnHandle, 0x82, MyDamnResponse, sizeof(MyDamnResponse), bytes_transferred_cnt, 0);
+	int bytes_transferred_cnt = 0;
+	int rc = libusb_interrupt_transfer(MyDamnHandle, 0x82, MyDamnResponse, sizeof(MyDamnResponse), &bytes_transferred_cnt, 0);
+	std::string str_output = "";
 	if (rc != 0) {
 		std::cerr << "Error receiving interrupt transfer: " << libusb_error_name(rc) << std::endl;
 	}
 	else {
-		std::cout << "Interrupt transfer received successfully, " << bytes_transferred_cnt << " bytes transferred. >>>>:" << MyDamnResponse << std::endl;
+		std::cout << "Interrupt transfer received successfully, " << bytes_transferred_cnt << " bytes transferred. >>>>:" << MyDamnResponse << "--"<<sizeof(MyDamnResponse)<<std::endl;
+		//reinterpret_cast<char*>(name) 
+		if (bytes_transferred_cnt ==0)
+		{
+			std::cout << "bytes_transferred_cnt is 0" << std::endl;
+		}
+		else
+		{
+			std::cout << "bytes_transferred_cnt is  not zero yeye!:" <<bytes_transferred_cnt<< std::endl;
+			std::cout<<TIM_PrintBytesFromData(bytes_transferred_cnt, MyDamnResponse) << std::endl;
+			
+		}
+		std::cout << "bibble:" << str_output << "--" << sizeof(MyDamnResponse) << std::endl;
 	}
-	*/
 
-	/********************/
+
+
+	
 }
+
+
 
 void TIM_PrintWebAPICheck(libusb_device* device)
 {
@@ -733,13 +766,15 @@ void print_device_info(libusb_device* Param_Device)
 	LDesc_Device = TIM_GetDeviceDescriptor(Param_Device);
 	LDesc_Config = TIM_GetActiveConfigDescriptorPointer(Param_Device);
 
-	std::cout << "idVendor: 0x" << std::hex << LDesc_Device.idVendor << std::dec << std::endl;
-	std::cout << "idProduct: 0x" << std::hex << LDesc_Device.idProduct << std::dec << std::endl;
+	std::cout << "Port number:" << (int)libusb_get_port_number(Param_Device) << std::endl;
 	std::cout << "Bus number: " << int(libusb_get_bus_number(Param_Device)) << std::endl;
 	std::cout << "Device address: " << int(libusb_get_device_address(Param_Device)) << std::endl;
 	std::cout << "Device speed: " << getEnumString_USBSpeed(libusb_get_device_speed(Param_Device)) << std::endl;
-	std::cout << "Port number:" << (int)libusb_get_port_number(Param_Device) << std::endl;
 	std::cout << "Wireshark Stuff - (port.address.bus): " << (int)libusb_get_port_number(Param_Device) << "." << int(libusb_get_device_address(Param_Device)) << "." << int(libusb_get_bus_number(Param_Device)) << "     -  Filter: usb.bus_id== " << (int)libusb_get_port_number(Param_Device) << " and usb.device_address == " << int(libusb_get_device_address(Param_Device)) << std::endl; //WTF - wireshark calls it a usb.bus_id but in libusb its actually a port number????
+
+	std::cout << "idVendor: 0x" << std::hex << LDesc_Device.idVendor << std::dec << std::endl;
+	std::cout << "idProduct: 0x" << std::hex << LDesc_Device.idProduct << std::dec << std::endl;
+	
 	
 	TIM_PrintParentDevice(Param_Device);
 	TIM_PrintWebAPICheck(Param_Device);
