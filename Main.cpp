@@ -15,9 +15,6 @@
 #include <sstream>
 #include <vector>
 
-
-
-
 #include <array>
 //#include <stdint.h>
 //#include <chrono>
@@ -39,12 +36,6 @@ libusb_device_descriptor MyDamnDescriptor;
 const libusb_interface_descriptor* MyDamnInterfaceDescriptor = nullptr;
 const libusb_interface* MyDamnInterface = nullptr;
 const libusb_endpoint_descriptor* MyDamnEndpointDescriptor = nullptr;
-
-
-
-
-
-
 
 std::string utf16_to_utf8(const std::vector<uint16_t>& utf16) {
 	std::string utf8;
@@ -104,9 +95,6 @@ void CHECKIFBASTARDSAREUSINGUSBWEBAPI()
 			}
 		}
 	}
-
-	
-
 	std::cout << "FINISHED USB WEB API CHECKING" << std::endl;
 
 }
@@ -316,13 +304,15 @@ libusb_device_handle *TIM_GetDeviceHandlePointer(libusb_context* USB_Context, ui
 }
 
 
-void TIM_InitContextPointer(libusb_context* OUT_Context)
+libusb_context* TIM_InitContextPointer()
 {
+	libusb_context* OUT_Context;
 	//r = libusb_init_context(&MyDamnContext,MyDamnOptions,0);
 	int returnValue = libusb_init(&OUT_Context);
 	if (returnValue ==0)
 	{
 		std::cout << "Initialised Context..." << std::endl;
+		return OUT_Context;
 	}
 	else
 	{
@@ -376,28 +366,89 @@ libusb_config_descriptor* TIM_GetActiveConfigDescriptorPointer(libusb_device* De
 	return ReturnValue;
 }
 
+std::string uint8ToString(uint8_t value) {
+	int integer = int(value);
+	std::stringstream ss;
+	ss << integer;
+	return ss.str();
+}
+
+
+
+
+
+
+std::string TIM_EndpointAddressAnalysis(uint8_t IN_EndpointAddress)
+{
+	/*
+	The address of the endpoint on the USB device described by this descriptor.The address is encoded as follows :
+	Bit 3...0 : The endpoint number
+		Bit 6...4 : Reserved, reset to zero
+		Bit 7 : Direction, ignored for control endpoints.
+		0 = OUT endpoint
+		1 = IN endpoint
+
+		*/
+
+	
+	std::string str_Return;
+	//std::cout << "DEBUG:" << uint8ToBCDandHEX(IN_EndpointAddress) << " and " << (int)(IN_EndpointAddress & 0x80) << std::endl;
+	if ((int)((IN_EndpointAddress & 0x80)) == 128)
+	{
+		str_Return = " DIRECTION IN		to host		";
+	}
+	else
+	{
+		str_Return =" DIRECTION OUT	to device	";
+	}
+
+	
+	str_Return.append("Address is:");
+	str_Return.append(uint8ToString(IN_EndpointAddress & 0x0f));
+
+	if ((IN_EndpointAddress & 0x0f) == 0)
+	{
+		str_Return.append(" DEFAULT ENDPOINT");
+	}
+	else
+	{
+		str_Return.append(" normal (not default) endpoint");
+	}
+
+	return str_Return;
+}
+
+
+
 void TIM_PrintInterfacesAndEndpoints(libusb_config_descriptor* ConfigDesc)
 {
 	// Loop through the interfaces in the configuration
-	for (int i = 0; i < ConfigDesc->bNumInterfaces; i++) {
+	for (int i = 0; i < ConfigDesc->bNumInterfaces; i++)
+	{
 		MyDamnInterfaceDescriptor = &(ConfigDesc->interface[i].altsetting[0]);
 		std::cout << "Interface " << i << " has " << (int)MyDamnInterfaceDescriptor->bNumEndpoints<< " endpoint(s)" << std::endl;
 
 		// Loop through the endpoints in the interface
-		for (int j = 0; j < MyDamnInterfaceDescriptor->bNumEndpoints; j++) {
+		for (int j = 0; j < MyDamnInterfaceDescriptor->bNumEndpoints; j++)
+		{
 			MyDamnEndpointDescriptor = &(MyDamnInterfaceDescriptor->endpoint[j]);
-			std::cout << "  Endpoint " << j << " address: 0x" << std::setfill('0') << std::setw(2) << std::hex<<(int)MyDamnEndpointDescriptor->bEndpointAddress << std::dec << std::endl;
+			//MyDamnEndpointDescriptor->bEndpointAddress
+			std::cout << "  Endpoint " << j << " address: 0x" << std::setfill('0') << std::setw(2) << std::hex<<(int)MyDamnEndpointDescriptor->bEndpointAddress << std::dec << " test - "<< TIM_EndpointAddressAnalysis(MyDamnEndpointDescriptor->bEndpointAddress)<<std::endl;
 		}
+
+
 	}
 }
 
 
 
+
 void TIM_SHUTITDOWN()
 {
+
 	libusb_release_interface(MyDamnHandle, 0);
 	libusb_close(MyDamnHandle);
-	libusb_exit(MyDamnContext);
+	//libusb_exit(MyDamnContext);
 	libusb_free_device_list(MyDamnDevices, 1);
 	libusb_exit(nullptr);
 	std::cout << "SAFE EXIT" << std::endl;
@@ -504,8 +555,6 @@ void TIM_PlayWithDeviceDescriptor()
 		//std::cout <<"0x" << std::setfill('0') << std::setw(2) << std::hex << +a << " -- ";
 		//std::cout<<"(bus %d, device %d)\n" << std::setfill('0') << std::setw(2) << std::hex <<libusb_get_bus_number(MyDamnDevice)<< libusb_get_device_address(MyDamnDevice);
 
-
-
 		std::cout << "	(bus: " << uint8ToBCDandHEX(libusb_get_bus_number(MyDamnDevice)) << " Device: " << uint8ToBCDandHEX(libusb_get_device_address(MyDamnDevice)) << std::endl;
 		std::cout << "	SerialNumber:					" << uint8ToBCDandHEX(MyDamnDescriptor.iSerialNumber) << std::endl;
 		std::cout << "	BCD Device:					" << uint16ToBCDandHEX(MyDamnDescriptor.bcdDevice) << std::endl; // Device release number - USB Specification Release Number in Binary - Coded Decimal(i.e., 2.10 is 210h). This field identifies the release of the USB Specification with which the device and its descriptors are compliant.
@@ -537,7 +586,6 @@ void TIM_PlayWithDeviceDescriptor()
 		//int_FoundConfig = libusb_get_config_descriptor(MyDamnDevice, 0, configDescriptor);
 		int_FoundConfig = libusb_get_configuration(MyDamnHandle, int_Config);
 
-
 		if (int_FoundConfig == 0)
 		{
 			std::cout << "int_Config:		" << *int_Config << std::endl;
@@ -561,7 +609,6 @@ void TIM_PlayWithDeviceDescriptor()
 				//std::cout<<"%i	ActiveConfigDescriptor - totallength:" << MyDamnConfigDescriptor->wTotalLength << std::endl;
 
 				//std::cout<<"%i	ActiveConfigDescriptor - interface num altsetting:\n", MyDamnConfigDescriptor.interface->num_altsetting);
-
 			}
 			else
 			{
@@ -569,14 +616,11 @@ void TIM_PlayWithDeviceDescriptor()
 				libusb_error_name(shesh);
 				exit(0);
 			}
-
 		}
 		else
 		{
 			exit(0);
 		}
-
-
 
 		//std::cout<<"Found device configuration...\n"<<std::endl;
 	//libusb_fill_interrupt_transfer()
@@ -672,9 +716,6 @@ void TIM_PlayWithInterrupts()
 	//TIM_Current2(MyDamnResponse, MyDamnHandle, 0x82);
 	//std::cout << response.data() << std::endl;
 
-
-
-	
 	
 	// Receive the response from endpoint 0x81
 	int bytes_transferred_cnt = 0;
@@ -698,10 +739,6 @@ void TIM_PlayWithInterrupts()
 		}
 		std::cout << "bibble:" << str_output << "--" << sizeof(MyDamnResponse) << std::endl;
 	}
-
-
-
-	
 }
 
 
@@ -775,19 +812,20 @@ void print_device_info(libusb_device* Param_Device)
 	std::cout << "idVendor: 0x" << std::hex << LDesc_Device.idVendor << std::dec << std::endl;
 	std::cout << "idProduct: 0x" << std::hex << LDesc_Device.idProduct << std::dec << std::endl;
 	
-	
 	TIM_PrintParentDevice(Param_Device);
 	TIM_PrintWebAPICheck(Param_Device);
+}
+
+void TIM_PrintLIBUSBVersion()
+{
+	std::cout << "libusb Version (describe):" << libusb_get_version()->describe << "      Version:" << libusb_get_version()->major << "." << libusb_get_version()->minor << "." << libusb_get_version()->micro << "." << libusb_get_version()->nano << " " << libusb_get_version()->rc << std::endl;
 }
 
 int main(void)
 {
 
-	std::cout << "libusbverion:describe:" << libusb_get_version()->describe << std::endl;
-	std::cout << "Major:" << libusb_get_version()->major << std::endl;
-
-
-	TIM_InitContextPointer(MyDamnContext);
+	TIM_PrintLIBUSBVersion();
+	MyDamnContext = TIM_InitContextPointer();
 	MyDamnHandle = TIM_GetDeviceHandlePointer(MyDamnContext);
 	MyDamnDevice = TIM_GetDevicePointer(MyDamnHandle);
 	MyDamnConfigDescriptor = TIM_GetActiveConfigDescriptorPointer(MyDamnDevice);
@@ -800,8 +838,8 @@ int main(void)
 	TIM_PlayWithInterrupts();
 	CHECKIFBASTARDSAREUSINGUSBWEBAPI();
 
-
-	/**********************************************************/
+	
+	
 	//libusb_device** device_list;
 	ssize_t num_devices;
 	// Loop through the list of devices and print the info for each one
@@ -810,6 +848,8 @@ int main(void)
 		std::cout << "Device " << i << ":" << std::endl;
 		MyDamnDevice = MyDamnDevices[i];
 		print_device_info(MyDamnDevice);
+		MyDamnConfigDescriptor = TIM_GetActiveConfigDescriptorPointer(MyDamnDevice);
+		TIM_PrintInterfacesAndEndpoints(MyDamnConfigDescriptor);
 		std::cout << std::endl;
 	}
 	
